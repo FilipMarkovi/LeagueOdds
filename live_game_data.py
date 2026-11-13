@@ -1,24 +1,42 @@
 import os
 import time
+import math
+import threading
 import requests
 import urllib3
 import pandas as pd
 import joblib
+import tkinter as tk
+import sys
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 BASE_URL = "https://127.0.0.1:2999/liveclientdata"
-MODEL_PATH = "lol_win_predictor_model.pkl"
+MODEL_PATH = resource_path("lol_win_predictor_model.pkl")
 
 FEATURE_COLUMNS = [
     "game_time",
     "gold_diff",
-    "level_diff",
-    "towers_diff",
-    "dragons_diff",
-    "barons_diff",
-    "void_grubs_diff",
+    "xp_diff",
+    "team_towers",
+    "team_dragons",
+    "team_barons",
+    "team_void_grubs",
+    "lobby_rank_num"
 ]
+
+TEAM_ORDER = "ORDER"
+TEAM_CHAOS = "CHAOS"
 
 
 def safe_get_json(endpoint, timeout=2):
@@ -40,36 +58,37 @@ def _team_from_player(player):
     return str(player.get("team", "")).upper()
 
 
-def _player_total_gold(player):
-    current_gold = float(player.get("currentGold", 0) or 0)
-    item_worth = sum(float((item or {}).get("price", 0) or 0) for item in player.get("items", []))
-    return current_gold + item_worth
-
-
-def _player_xp_proxy(player):
-    return float(player.get("level", 1) or 1)
+def _safe_float(value, default=0.0):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(parsed):
+        return default
+    return parsed
 
 
 def _extract_objectives_from_events(events):
     objective_counts = {
-        "ORDER": {"towers": 0, "dragons": 0, "barons": 0, "void_grubs": 0},
-        "CHAOS": {"towers": 0, "dragons": 0, "barons": 0, "void_grubs": 0},
+        TEAM_ORDER: {"towers": 0, "dragons": 0, "barons": 0, "void_grubs": 0},
+        TEAM_CHAOS: {"towers": 0, "dragons": 0, "barons": 0, "void_grubs": 0},
     }
 
     for event in events:
         event_name = str(event.get("EventName", "")).lower()
+        monster_type = str(event.get("MonsterType", "")).lower()
         killer_team = str(event.get("KillerTeam", "")).upper()
 
         if killer_team not in objective_counts:
             continue
 
-        if "turret" in event_name:
+        if "turret" in event_name or "tower" in event_name:
             objective_counts[killer_team]["towers"] += 1
-        elif "dragon" in event_name:
+        elif "dragon" in event_name or "dragon" in monster_type:
             objective_counts[killer_team]["dragons"] += 1
-        elif "baron" in event_name:
+        elif "baron" in event_name or "baron" in monster_type:
             objective_counts[killer_team]["barons"] += 1
-        elif "grub" in event_name:
+        elif "grub" in event_name or "horde" in monster_type:
             objective_counts[killer_team]["void_grubs"] += 1
 
     return objective_counts
@@ -80,71 +99,119 @@ def build_feature_row(all_game_data, game_stats):
     events = (all_game_data.get("events", {}) or {}).get("Events", [])
     objective_counts = _extract_objectives_from_events(events)
 
-    blue_players = [p for p in all_players if _team_from_player(p) == "ORDER"]
-    red_players = [p for p in all_players if _team_from_player(p) == "CHAOS"]
+    blue_players = [p for p in all_players if _team_from_player(p) == TEAM_ORDER]
+    red_players = [p for p in all_players if _team_from_player(p) == TEAM_CHAOS]
 
-    blue_total_gold = sum(_player_total_gold(player) for player in blue_players)
-    red_total_gold = sum(_player_total_gold(player) for player in red_players)
+    if len(blue_players) != 5 or len(red_players) != 5:
+        raise ValueError("Incomplete player snapshot")
 
-    blue_level_sum = sum(_player_xp_proxy(player) for player in blue_players)
-    red_level_sum = sum(_player_xp_proxy(player) for player in red_players)
+    blue_total_gold = sum(_safe_float(p.get("scores", {}).get("totalGoldEarned", 0)) for p in blue_players)
+    red_total_gold = sum(_safe_float(p.get("scores", {}).get("totalGoldEarned", 0)) for p in red_players)
 
-    game_time_minutes = float(game_stats.get("gameTime", 0) or 0) / 60.0
+    blue_xp_sum = sum(_safe_float(p.get("level", 1)) * 1000 for p in blue_players)
+    red_xp_sum = sum(_safe_float(p.get("level", 1)) * 1000 for p in red_players)
+
+    game_time_seconds = _safe_float(game_stats.get("gameTime", 0), default=0.0)
+    game_time_minutes = float(int(game_time_seconds // 60))
 
     feature_row = {
         "game_time": game_time_minutes,
         "gold_diff": blue_total_gold - red_total_gold,
-        "level_diff": blue_level_sum - red_level_sum,
-        "towers_diff": objective_counts["ORDER"]["towers"] - objective_counts["CHAOS"]["towers"],
-        "dragons_diff": objective_counts["ORDER"]["dragons"] - objective_counts["CHAOS"]["dragons"],
-        "barons_diff": objective_counts["ORDER"]["barons"] - objective_counts["CHAOS"]["barons"],
-        "void_grubs_diff": objective_counts["ORDER"]["void_grubs"] - objective_counts["CHAOS"]["void_grubs"],
+        "xp_diff": blue_xp_sum - red_xp_sum,
+        "team_towers": objective_counts[TEAM_ORDER]["towers"],
+        "team_dragons": objective_counts[TEAM_ORDER]["dragons"],
+        "team_barons": objective_counts[TEAM_ORDER]["barons"],
+        "team_void_grubs": objective_counts[TEAM_ORDER]["void_grubs"],
+        "lobby_rank_num": 4
     }
 
-    return pd.DataFrame([feature_row], columns=FEATURE_COLUMNS)
+    feature_df = pd.DataFrame([feature_row], columns=FEATURE_COLUMNS)
+    return feature_df.apply(pd.to_numeric, errors="coerce").fillna(0.0)
 
 
-def main():
-    if not os.path.exists(MODEL_PATH):
-        print(f"Model file not found: {MODEL_PATH}")
-        print("Run train.py first to generate the model.")
-        return
+class LoLPredictorApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("LoL Win Predictor")
+        
+        # Window configuration for transparent overlay appearance
+        self.root.overrideredirect(True) # Removes window borders/titlebar
+        self.root.attributes("-topmost", True) # Keeps it floating above the game
+        self.root.attributes("-alpha", 0.85) # Semi-transparent background
+        self.root.geometry("220x90+50+50") # Compact size, placed near top-left
+        self.root.configure(bg="#1e1e1e")
 
-    model = joblib.load(MODEL_PATH)
+        # Make window draggable so users can place it anywhere on screen
+        self.root.bind("<Button-1>", self.start_move)
+        self.root.bind("<B1-Motion>", self.do_move)
 
-    print("Live predictor started. Waiting for active LoL match...")
-    print("Evaluates every 5 in-game minutes (5, 10, 15, ...).")
+        # UI Elements
+        self.title_label = tk.Label(root, text="MATCH WIN ODDS", fg="#aaaaaa", bg="#1e1e1e", font=("Arial", 9, "bold"))
+        self.title_label.pack(pady=(5, 0))
 
-    last_evaluated_mark = -1
+        self.status_label = tk.Label(root, text="Waiting for game...", fg="#ffcc00", bg="#1e1e1e", font=("Arial", 10))
+        self.status_label.pack(pady=5)
 
-    while True:
-        all_game_data, game_stats = get_live_game_data()
-        if all_game_data is None:
-            print("No active match detected. Retrying in 10 seconds...")
+        self.odds_label = tk.Label(root, text="Blue: --% | Red: --%", fg="#ffffff", bg="#1e1e1e", font=("Arial", 11, "bold"))
+        self.odds_label.pack(pady=(0, 5))
+
+        # Load ML Model
+        if not os.path.exists(MODEL_PATH):
+            self.status_label.config(text="Model missing!", fg="#ff4444")
+            return
+
+        self.model = joblib.load(MODEL_PATH)
+
+        # Start background polling thread
+        self.running = True
+        self.thread = threading.Thread(target=self.poll_game_loop, daemon=True)
+        self.thread.start()
+
+    def start_move(self, event):
+        self.x = event.x
+        self.y = event.y
+
+    def do_move(self, event):
+        x = self.root.winfo_x() + (event.x - self.x)
+        y = self.root.winfo_y() + (event.y - self.y)
+        self.root.geometry(f"+{x}+{y}")
+
+    def poll_game_loop(self):
+        last_evaluated_minute = -1
+        while self.running:
+            all_game_data, game_stats = get_live_game_data()
+            if all_game_data is None:
+                self.root.after(0, lambda: self.status_label.config(text="Not in game...", fg="#888888"))
+                self.root.after(0, lambda: self.odds_label.config(text="Blue: --% | Red: --%"))
+                time.sleep(10)
+                continue
+
+            game_time_seconds = _safe_float(game_stats.get("gameTime", 0), default=0.0)
+            current_minute = int(game_time_seconds // 60)
+
+            if current_minute > 0 and current_minute != last_evaluated_minute:
+                try:
+                    X_live = build_feature_row(all_game_data, game_stats)
+                    blue_win_prob = float(self.model.predict_proba(X_live)[0][1])
+                    red_win_prob = 1.0 - blue_win_prob
+
+                    status_text = f"Game Time: {current_minute}m"
+                    odds_text = f"Blue: {blue_win_prob*100:.1f}%  Red: {red_win_prob*100:.1f}%"
+
+                    # Safely update GUI elements from background thread
+                    self.root.after(0, lambda s=status_text, o=odds_text: [
+                        self.status_label.config(text=s, fg="#00ffcc"),
+                        self.odds_label.config(text=o)
+                    ])
+
+                    last_evaluated_minute = current_minute
+                except Exception as e:
+                    print(f"Prediction error: {e}")
+
             time.sleep(10)
-            continue
-
-        game_time_seconds = float(game_stats.get("gameTime", 0) or 0)
-        current_mark = int(game_time_seconds // 300)
-
-        if current_mark > 0 and current_mark != last_evaluated_mark:
-            X_live = build_feature_row(all_game_data, game_stats)
-            blue_win_prob = float(model.predict_proba(X_live)[0][1])
-            red_win_prob = 1.0 - blue_win_prob
-
-            minute = int(game_time_seconds // 60)
-            second = int(game_time_seconds % 60)
-
-            print("-" * 55)
-            print(f"Time: {minute:02d}:{second:02d}")
-            print(f"Blue (ORDER) win chance: {blue_win_prob * 100:.2f}%")
-            print(f"Red  (CHAOS) win chance: {red_win_prob * 100:.2f}%")
-            print(f"Feature snapshot: {X_live.to_dict(orient='records')[0]}")
-
-            last_evaluated_mark = current_mark
-
-        time.sleep(15)
 
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = LoLPredictorApp(root)
+    root.mainloop()
