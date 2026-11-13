@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoL Winning Odds Predictor</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #60a5fa;
+      --accent-2: #22d3ee;
+      --ok: #34d399;
+      --border: #374151;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 700px at 10% -10%, #1e3a8a55, transparent),
+        radial-gradient(1200px 700px at 90% -10%, #0e749055, transparent),
+        var(--bg);
+      line-height: 1.5;
+    }
+
+    .container {
+      width: min(1080px, 92%);
+      margin: 0 auto;
+      padding: 32px 0 64px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .badge {
+      width: fit-content;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--accent-2);
+      font-size: 13px;
+      background: #0b1220;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 800px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      text-decoration: none;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 180ms ease;
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #08111f;
+    }
+
+    .btn.secondary {
+      background: #101826;
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+      margin-top: 22px;
+    }
+
+    .card {
+      grid-column: span 12;
+      background: linear-gradient(180deg, #111827cc, #0b1220cc);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .card p { margin: 0 0 10px; color: var(--muted); }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text);
+    }
+
+    li { margin-bottom: 6px; }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .code {
+      margin: 0;
+      padding: 12px;
+      border-radius: 12px;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      color: #d1d5db;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid #1f513f;
+      background: #052e23;
+      color: #86efac;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 10px var(--ok);
+    }
+
+    .footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (min-width: 860px) {
+      .card.span-7 { grid-column: span 7; }
+      .card.span-5 { grid-column: span 5; }
+      .split { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="hero">
+      <div class="badge">League of Legends • ML Predictor</div>
+      <h1>LoL Winning Odds Predictor</h1>
+      <p class="lead">
+        Predicts Blue vs Red win probability from live match state using simple team-difference features:
+        game time, gold diff, level diff, towers, dragons, barons, and void grubs.
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="downloads/lol_win_predictor_program.zip" download>⬇ Download Program ZIP</a>
+        <a class="btn secondary" href="downloads/lol_win_predictor_model.zip" download>⬇ Download Model ZIP</a>
+      </div>
+      <div class="small">If ZIP files are not present yet, links are placeholders and can be added later in the downloads folder.</div>
+    </section>
+
+    <section class="grid">
+      <article class="card span-7">
+        <h2>How it works</h2>
+        <ul>
+          <li><strong>Preprocess:</strong> raw interval snapshots are converted into team-diff features per match-minute.</li>
+          <li><strong>Train:</strong> XGBoost learns whether Blue team wins from those features.</li>
+          <li><strong>Evaluate:</strong> outputs overall accuracy + accuracy by 5-minute checkpoints.</li>
+          <li><strong>Live mode:</strong> reads LoL Live Client API and prints win chance every 5 in-game minutes.</li>
+        </ul>
+      </article>
+
+      <article class="card span-5">
+        <div class="status"><span class="dot"></span> Live prediction enabled</div>
+        <h2>Live API source</h2>
+        <p>Endpoint expected from game client:</p>
+        <p class="code">https://127.0.0.1:2999/liveclientdata</p>
+        <p class="small">Requires an active match with the local LoL client running.</p>
+      </article>
+
+      <article class="card">
+        <h2>Quick start</h2>
+        <div class="split">
+          <div>
+            <p class="code">python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt</p>
+          </div>
+          <div>
+            <p class="code">python preprocess_training_data.py
+python train.py
+python live_game_data.py</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Feature schema used</h2>
+        <ul>
+          <li><strong>game_time</strong> (minutes)</li>
+          <li><strong>gold_diff</strong> (blue total gold - red total gold)</li>
+          <li><strong>level_diff</strong> (sum of champion levels, blue - red)</li>
+          <li><strong>towers_diff</strong>, <strong>dragons_diff</strong>, <strong>barons_diff</strong>, <strong>void_grubs_diff</strong></li>
+          <li><strong>target:</strong> blue_win (1 if Blue wins)</li>
+        </ul>
+      </article>
+    </section>
+
+    <p class="footer">Built for fast iteration: add richer features later without changing the main workflow.</p>
+  </main>
+</body>
+</html>
