@@ -27,8 +27,9 @@ jobs:
       run: |
         # --onefile packages everything into a single .exe
         # --noconsole hides the black command prompt window
-        # --add-data bundles your local model file into the executable (format: "file_to_bundle;destination_folder")
-        pyinstaller --onefile --noconsole --add-data "lol_win_predictor_model.pkl;." live_predictor.py
+        # --hidden-import=xgboost ensures the C-extension backend is bundled properly
+        # --add-data bundles your local model file into the executable
+        pyinstaller --onefile --noconsole --hidden-import=xgboost --add-data "lol_win_predictor_model.pkl;." live_predictor.py
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
