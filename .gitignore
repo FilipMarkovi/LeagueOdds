@@ -20,7 +20,6 @@ venv/
 lol_dataset/*.csv
 !lol_dataset/ChampionTbl.csv
 !lol_dataset/ItemTbl.csv
-lol_win_predictor_model.pkl
 *.zip
 
 # Logs
