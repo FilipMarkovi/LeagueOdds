@@ -133,23 +133,46 @@
 
     li { margin-bottom: 6px; }
 
-    .split {
+    .steps {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 16px;
+      gap: 10px;
     }
 
-    .code {
-      margin: 0;
-      padding: 12px;
+    .step {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 12px;
       border-radius: 12px;
-      background: #0b1220;
       border: 1px solid var(--border);
-      color: #d1d5db;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 14px;
-      overflow-x: auto;
-      white-space: pre;
+      background: #0b1220;
+    }
+
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #16324f;
+      color: #93c5fd;
+      font-weight: 700;
+      font-size: 12px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--text);
+    }
+
+    .downloads {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
     .small {
@@ -189,7 +212,7 @@
     @media (min-width: 860px) {
       .card.span-7 { grid-column: span 7; }
       .card.span-5 { grid-column: span 5; }
-      .split { grid-template-columns: 1fr 1fr; }
+      .steps { grid-template-columns: 1fr 1fr 1fr; }
     }
   </style>
 </head>
@@ -199,65 +222,68 @@
       <div class="badge">League of Legends • ML Predictor</div>
       <h1>LoL Winning Odds Predictor</h1>
       <p class="lead">
-        Predicts Blue vs Red win probability from live match state using simple team-difference features:
-        game time, gold diff, level diff, towers, dragons, barons, and void grubs.
+        A lightweight Windows app that tracks your live match and shows Blue vs Red win chance every 5 minutes.
+        No setup commands, no coding, just download and run.
       </p>
       <div class="actions">
-        <!-- Point to your GitHub repository's latest release download link -->
-        <a class="btn primary" href="https://github.com/FilipMarkovi/LeagueOdds/releases/latest/download/live_predictor.exe">⬇ Download Windows App (.exe)</a>
-        <a class="btn secondary" href="https://github.com/FilipMarkovi/LeagueOdds" target="_blank">View on GitHub</a>
+        <a class="btn primary" href="https://github.com/FilipMarkovi/LeagueOdds/releases/latest/download/LoL-Win-Predictor-Windows.zip">⬇ Download Windows App (.zip)</a>
+        <a class="btn secondary" href="https://github.com/FilipMarkovi/LeagueOdds/releases" target="_blank" rel="noopener noreferrer">All Downloads</a>
+        <a class="btn secondary" href="https://github.com/FilipMarkovi/LeagueOdds" target="_blank" rel="noopener noreferrer">View on GitHub</a>
       </div>
-      <div class="small">Downloads the standalone background app. No separate model file needed!</div>
+      <div class="small">Standalone app • Works during active LoL matches • Local-only match reading</div>
     </section>
 
     <section class="grid">
       <article class="card span-7">
-        <h2>How it works</h2>
+        <h2>How the app works</h2>
         <ul>
-          <li><strong>Preprocess:</strong> raw interval snapshots are converted into team-diff features per match-minute.</li>
-          <li><strong>Train:</strong> XGBoost learns whether Blue team wins from those features.</li>
-          <li><strong>Evaluate:</strong> outputs overall accuracy + accuracy by 5-minute checkpoints.</li>
-          <li><strong>Live mode:</strong> reads LoL Live Client API and prints win chance every 5 in-game minutes.</li>
+          <li><strong>Connects to your live match:</strong> the app reads current game state from your running LoL client.</li>
+          <li><strong>Builds a live snapshot:</strong> compares both teams using gold, levels, towers, dragons, barons, and grubs.</li>
+          <li><strong>Predicts win chance:</strong> shows updated Blue vs Red odds at each 5-minute checkpoint.</li>
+          <li><strong>Runs in the background:</strong> quick readouts while you play, with no manual data entry.</li>
         </ul>
       </article>
 
       <article class="card span-5">
         <div class="status"><span class="dot"></span> Live prediction enabled</div>
-        <h2>Live API source</h2>
-        <p>Endpoint expected from game client:</p>
-        <p class="code">https://127.0.0.1:2999/liveclientdata</p>
-        <p class="small">Requires an active match with the local LoL client running.</p>
+        <h2>Before you start</h2>
+        <ul>
+          <li>Windows PC</li>
+          <li>League of Legends client open</li>
+          <li>Active match in progress</li>
+        </ul>
+        <p class="small">The app reads only local live-match data from your own game client.</p>
       </article>
 
       <article class="card">
-        <h2>Quick start</h2>
-        <div class="split">
-          <div>
-            <p class="code">python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt</p>
+        <h2>3 quick steps</h2>
+        <div class="steps">
+          <div class="step">
+            <span class="step-num">1</span>
+            <p>Download the latest <strong>.exe</strong> build.</p>
           </div>
-          <div>
-            <p class="code">python preprocess_training_data.py
-python train.py
-python live_game_data.py</p>
+          <div class="step">
+            <span class="step-num">2</span>
+            <p>Launch the app, then start or join a match.</p>
+          </div>
+          <div class="step">
+            <span class="step-num">3</span>
+            <p>See live win odds update every 5 minutes.</p>
           </div>
         </div>
       </article>
 
       <article class="card">
-        <h2>Feature schema used</h2>
-        <ul>
-          <li><strong>game_time</strong> (minutes)</li>
-          <li><strong>gold_diff</strong> (blue total gold - red total gold)</li>
-          <li><strong>level_diff</strong> (sum of champion levels, blue - red)</li>
-          <li><strong>towers_diff</strong>, <strong>dragons_diff</strong>, <strong>barons_diff</strong>, <strong>void_grubs_diff</strong></li>
-          <li><strong>target:</strong> blue_win (1 if Blue wins)</li>
-        </ul>
+        <h2>Download</h2>
+        <p>Choose how you want to get the app:</p>
+        <div class="downloads">
+          <a class="btn primary" href="https://github.com/FilipMarkovi/LeagueOdds/releases/latest/download/live_predictor.exe">⬇ Latest Windows .exe</a>
+          <a class="btn secondary" href="https://github.com/FilipMarkovi/LeagueOdds/releases" target="_blank" rel="noopener noreferrer">Browse Release History</a>
+        </div>
       </article>
     </section>
 
-    <p class="footer">Built for fast iteration: add richer features later without changing the main workflow.</p>
+    <p class="footer">LoL Winning Odds Predictor • Standalone download • Simple live match insights</p>
   </main>
 </body>
 </html>
